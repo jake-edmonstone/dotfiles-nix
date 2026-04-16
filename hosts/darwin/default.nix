@@ -27,6 +27,7 @@
   nix-homebrew = {
     enable = true;
     user = "jbedm";
+    autoMigrate = true; # adopt existing Homebrew installation
   };
 
   homebrew = {
