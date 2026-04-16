@@ -3,10 +3,12 @@
 {
   programs.git = {
     enable = true;
-    userName = if isCerebras then "Jake Edmonstone" else "jake-edmonstone";
-    userEmail = if isCerebras then "jake.edmonstone@cerebras.net" else "jbedmonstone@gmail.com";
 
-    extraConfig = {
+    settings = {
+      user = {
+        name = if isCerebras then "Jake Edmonstone" else "jake-edmonstone";
+        email = if isCerebras then "jake.edmonstone@cerebras.net" else "jbedmonstone@gmail.com";
+      };
       core = {
         editor = "nvim";
         fsmonitor = true;

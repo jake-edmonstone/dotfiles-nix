@@ -4,6 +4,8 @@
   programs.neovim = {
     enable = true;
     defaultEditor = true;
+    withRuby = false;
+    withPython3 = false;
   };
 
   # Deploy entire nvim config as a mutable symlink (instant edits, lazy.nvim can write lockfile)

@@ -12,7 +12,7 @@
     ../modules/scripts.nix
   ];
 
-  home.stateVersion = "24.11";
+  home.stateVersion = "26.05";
 
   home.packages = with pkgs; [
     claude-code
