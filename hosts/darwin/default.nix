@@ -37,7 +37,10 @@
       cleanup = "zap";
     };
     casks = [
+      "docker-desktop"
       "hammerspoon"
+      "obsidian"
+      "orion"
       "raycast"
       "spotify"
       "stats"

@@ -26,6 +26,14 @@
     tree-sitter
     typst
     nodejs
+    clang-format
+    cmake
+    docker-client
+    mosh
+    pandoc
+    tree
+    unison
+    wget
   ];
 
   # ── Programs with native modules ──────────────────────────────────────────
