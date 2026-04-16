@@ -90,7 +90,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   # First run: nix-darwin isn't installed yet, so use nix run to bootstrap
   if ! command -v darwin-rebuild >/dev/null 2>&1; then
     msg "Bootstrapping nix-darwin (first run)"
-    nix run nix-darwin/master#darwin-rebuild -- switch --flake "$DOTFILES#$HOSTNAME"
+    sudo nix run nix-darwin/master#darwin-rebuild -- switch --flake "$DOTFILES#$HOSTNAME"
   else
     # Use $(which ...) to survive sudo PATH reset
     sudo "$(which darwin-rebuild)" switch --flake "$DOTFILES#$HOSTNAME"
