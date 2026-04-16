@@ -27,11 +27,21 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Install Nix (Determinate Systems installer — enables flakes by default)
+# Install Nix (Determinate Nix — native macOS package, shell installer on Linux)
 # ──────────────────────────────────────────────────────────────────────────────
 if ! command -v nix >/dev/null 2>&1; then
-  msg "Installing Nix (Determinate Systems installer)"
-  curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    msg "Installing Determinate Nix (macOS package)"
+    _pkg="$(mktemp -d)/Determinate.pkg"
+    curl --proto '=https' --tlsv1.2 -sSfL \
+      https://install.determinate.systems/determinate-pkg/stable/Universal \
+      -o "$_pkg"
+    sudo installer -verboseR -pkg "$_pkg" -target /
+    rm -f "$_pkg"
+  else
+    msg "Installing Nix (Determinate Systems installer)"
+    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+  fi
   # Source nix in this shell
   if [[ -f /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh ]]; then
     . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
