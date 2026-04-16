@@ -11,7 +11,7 @@
       };
       core = {
         editor = "nvim";
-        fsmonitor = true;
+        fsmonitor = false; # conflicts with gitstatusd (p10k), causes stale prompt
         untrackedCache = true;
       };
       pull.rebase = true;
