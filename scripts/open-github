@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(tmux display-message -p '#{pane_current_path}')"
+url="$(git remote get-url origin)"
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  open "$url"
+else
+  xdg-open "$url"
+fi
