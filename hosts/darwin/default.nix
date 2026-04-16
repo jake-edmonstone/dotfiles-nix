@@ -6,6 +6,8 @@
   nixpkgs.hostPlatform = "aarch64-darwin";
   nixpkgs.config.allowUnfree = true;
 
+  users.users.jbedm.home = "/Users/jbedm";
+
   # Nix daemon and settings are managed by the Determinate Nix package.
   # nix-darwin's nix.* options are disabled to avoid conflicts.
   nix.enable = false;
