@@ -6,7 +6,9 @@
   nixpkgs.hostPlatform = "aarch64-darwin";
   nixpkgs.config.allowUnfree = true;
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  # Nix daemon and settings are managed by the Determinate Nix package.
+  # nix-darwin's nix.* options are disabled to avoid conflicts.
+  nix.enable = false;
 
   security.pam.services.sudo_local.touchIdAuth = true;
 
