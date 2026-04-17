@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   system.primaryUser = "jbedm";
@@ -149,5 +149,18 @@
     /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u
     killall Finder || true
     killall SystemUIServer || true
+
+    # macOS Sequoia/Tahoe reads `com.apple.mouse.tapBehavior` at per-host
+    # (ByHost) scope for the "Tap to click" switch, but nix-darwin's
+    # system.defaults.trackpad.Clicking only writes user-global keys
+    # (ByHost not yet supported — nix-darwin issue #1721). Write it here
+    # as the user (activation itself runs as root).
+    _uid=$(id -u ${config.system.primaryUser})
+    if [ -n "$_uid" ]; then
+      launchctl asuser "$_uid" sudo --user=${config.system.primaryUser} -- \
+        defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1 || true
+      launchctl asuser "$_uid" sudo --user=${config.system.primaryUser} -- \
+        /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u || true
+    fi
   '';
 }

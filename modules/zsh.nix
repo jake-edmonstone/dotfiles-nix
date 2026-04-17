@@ -67,7 +67,7 @@
           # complete -F, etc.). `emulate -L bash -c` makes zsh locally behave
           # like bash while sourcing so bash-specific constructs don't error.
           global_bashrc="/cb/user_env/bashrc-latest"
-          [[ -r "$global_bashrc" ]] && emulate -L bash -c "source \"$global_bashrc\""
+          [[ -r "$global_bashrc" ]] && emulate bash -c "source \"$global_bashrc\""
         ''}
       '')
 

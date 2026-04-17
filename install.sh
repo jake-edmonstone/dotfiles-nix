@@ -100,10 +100,14 @@ EOF
 [ -r "$HOME/.bashrc.extra" ] && . "$HOME/.bashrc.extra"
 
 # Switch interactive shells to zsh, entering the nix-user-chroot if installed
-# so zsh starts with /nix/store already visible.
+# so zsh starts with /nix/store already visible. Prepend ~/.nix-profile/bin to
+# PATH before exec so `env zsh` inside the chroot finds Nix's zsh (patchelf'd
+# against Nix's glibc) — using the system zsh would fail to load plugin .so
+# files built against a newer glibc than the host ships.
 if [[ $- == *i* ]] && command -v zsh >/dev/null 2>&1; then
   if [ -x "$HOME/.local/bin/nix-user-chroot" ] && [ -d "$HOME/.nix" ]; then
     export NIX_USER_CHROOT=1
+    export PATH="$HOME/.nix-profile/bin:$PATH"
     exec "$HOME/.local/bin/nix-user-chroot" "$HOME/.nix" /usr/bin/env zsh -l
   fi
   exec zsh -l
