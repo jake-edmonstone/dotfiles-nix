@@ -8,9 +8,9 @@
 
   users.users.jbedm.home = "/Users/jbedm";
 
-  # Nix daemon and settings are managed by the Determinate Nix package.
-  # nix-darwin's nix.* options are disabled to avoid conflicts.
-  nix.enable = false;
+  # Determinate Nix handles the daemon; the module also auto-sets
+  # nix.enable = false to avoid nix-darwin stepping on Determinate's config.
+  determinateNix.enable = true;
 
   security.pam.services.sudo_local = {
     touchIdAuth = true;
@@ -29,20 +29,40 @@
     ];
   };
 
-  programs.zsh.enable = true;
+  # Trim system /etc/zshrc to the minimum we actually use. The defaults add
+  # ~100-250ms of startup: a duplicate compinit (our user zshrc runs another
+  # one with the right fpath), a `prompt suse` setup we override with p10k,
+  # and bashcompinit which we don't use with Nix tools.
+  programs.zsh = {
+    enable = true;
+    enableGlobalCompInit = false;
+    enableBashCompletion = false;
+    promptInit = "";
+    # Inline `brew shellenv` output so we skip the ~100ms Ruby fork per shell.
+    # nix-homebrew.enableZshIntegration is disabled below to prevent duplication.
+    interactiveShellInit = ''
+      export HOMEBREW_PREFIX="/opt/homebrew"
+      export HOMEBREW_CELLAR="/opt/homebrew/Cellar"
+      export HOMEBREW_REPOSITORY="/opt/homebrew"
+      fpath[1,0]="/opt/homebrew/share/zsh/site-functions"
+      export PATH="/opt/homebrew/bin:/opt/homebrew/sbin''${PATH+:$PATH}"
+      [ -z "''${MANPATH-}" ] || export MANPATH=":''${MANPATH#:}"
+      export INFOPATH="/opt/homebrew/share/info:''${INFOPATH:-}"
+    '';
+  };
 
   fonts.packages = with pkgs; [
     maple-mono.NF
     newcomputermodern   # full family (Book weight) for Typst documents
   ];
 
-  # ---------------------------------------------------------------------------
   # Homebrew (GUI apps only — CLI tools are in nixpkgs)
-  # ---------------------------------------------------------------------------
   nix-homebrew = {
     enable = true;
     user = "jbedm";
-    autoMigrate = true; # adopt existing Homebrew installation
+    # Disabled: we set brew env in programs.zsh.interactiveShellInit directly
+    # (inline instead of eval'ing brew shellenv, saves ~100ms per shell).
+    enableZshIntegration = false;
   };
 
   homebrew = {
@@ -50,7 +70,7 @@
     onActivation = {
       autoUpdate = true;
       upgrade = true;
-      cleanup = "zap";
+      cleanup = "uninstall";
     };
     casks = [
       "claude-code@latest"
@@ -64,12 +84,9 @@
     # masApps requires being signed into the App Store first.
     # Install Goodnotes manually: mas install 1444383602
     masApps = {};
-
   };
 
-  # ---------------------------------------------------------------------------
   # macOS defaults
-  # ---------------------------------------------------------------------------
   system.defaults = {
     dock = {
       autohide = true;

@@ -8,7 +8,11 @@ WEBSITE_DIR="$HOME/Projects/jake-edmonstone.github.io"
 # Commit and push typst repo
 echo "Committing typst repo..."
 git -C "$TYPST_DIR" add .
-git -C "$TYPST_DIR" commit -m "update resume $(date +%Y-%m-%d)" || echo "No changes in typst repo"
+if git -C "$TYPST_DIR" diff --cached --quiet; then
+  echo "No changes in typst repo"
+else
+  git -C "$TYPST_DIR" commit -m "update resume $(date +%Y-%m-%d)"
+fi
 git -C "$TYPST_DIR" push
 
 # Compile resume and cv
@@ -19,7 +23,11 @@ typst compile "$PROFESSIONAL_DIR/cv.typ" "$WEBSITE_DIR/cv.pdf"
 # Commit and push website repo
 echo "Committing website repo..."
 git -C "$WEBSITE_DIR" add resume.pdf cv.pdf
-git -C "$WEBSITE_DIR" commit -m "update resume and cv $(date +%Y-%m-%d)" || echo "No changes in website repo"
+if git -C "$WEBSITE_DIR" diff --cached --quiet; then
+  echo "No changes in website repo"
+else
+  git -C "$WEBSITE_DIR" commit -m "update resume and cv $(date +%Y-%m-%d)"
+fi
 git -C "$WEBSITE_DIR" push
 
 echo "Done!"

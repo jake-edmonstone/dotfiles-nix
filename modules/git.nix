@@ -45,14 +45,6 @@
       }
       (lib.mkIf isCerebras {
         push.default = "simple";
-        filter.lfs = {
-          smudge = "git-lfs smudge -- %f";
-          process = "git-lfs filter-process";
-          required = true;
-          clean = "git-lfs clean -- %f";
-        };
-        # Credential helpers for github.com and gist.github.com are set
-        # automatically by programs.gh.gitCredentialHelper.
       })
     ];
 
@@ -67,6 +59,8 @@
       }
     ];
   };
+
+  programs.git.lfs.enable = isCerebras;
 
   programs.delta = {
     enable = true;

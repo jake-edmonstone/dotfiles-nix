@@ -14,7 +14,7 @@ if ! [ -d "$DIR" ]; then
   read -p "Directory $DIR does not exist. Create worktree? [y/N] " answer
   [[ "$answer" =~ ^[Yy]$ ]] || exit 1
   git -C "$HOME/ws/llvm-project" worktree add -b "$BRANCH" "$DIR" origin/cerebras --no-track
-  cp "$HOME/ws/llvm-project/.clangd" "$DIR/.clangd" 2>/dev/null
+  cp "$HOME/ws/llvm-project/.clangd" "$DIR/.clangd" 2>/dev/null || true
 fi
 
 if ! tmux has-session -t "$SESSION" 2>/dev/null; then

@@ -209,7 +209,7 @@ function M.ask(default)
   -- Initial highlight for prefilled text
   highlight()
 
-  local group = api.nvim_create_augroup("PromptFloat", { clear = true })
+  local group = api.nvim_create_augroup("PromptFloat_" .. buf, { clear = true })
   api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
     group = group,
     buffer = buf,
@@ -238,7 +238,7 @@ function M.ask(default)
     end
   end
 
-  local kopts = { buffer = buf, silent = true }
+  local kopts = { buf = buf, silent = true }
   vim.keymap.set("n", "<CR>", submit, kopts)
   vim.keymap.set("n", "q", close, kopts)
   vim.keymap.set("n", "<Esc>", close, kopts)

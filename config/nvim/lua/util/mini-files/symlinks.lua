@@ -30,7 +30,10 @@ local function markSymlinks(buf_id)
 
         local line = api.nvim_buf_get_lines(buf_id, line_idx, line_idx + 1, false)[1]
         if not line then return end
-        local nameStart = line:find(vim.pesc(name))
+        -- Skip the leading /NNN/icon / path prefix that mini.files prepends
+        local _, prefix_end = line:find("^/%d+/.-/")
+        if not prefix_end then return end
+        local nameStart = line:find(vim.pesc(name), prefix_end + 1)
         if nameStart then
           api.nvim_buf_set_extmark(buf_id, ns, line_idx, nameStart - 1, {
             end_col = nameStart + #name - 1,

@@ -4,6 +4,8 @@
   programs.zsh = {
     enable = true;
     enableCompletion = true;
+    # -C skips the slow insecure-directory check. Safe in single-user setups.
+    completionInit = "autoload -U compinit && compinit -C";
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     defaultKeymap = "emacs";
@@ -39,49 +41,24 @@
       fixpath = ''cd ''${PWD/#\/net\/jakee-vm\/srv\/nfs\/jakee-data/~}'';
     };
 
-    # LOCPATH references HOMEBREW_PREFIX from profileExtra, so must be a
-    # zsh-scoped sessionVariable (resolved when zsh profile runs).
-    sessionVariables = lib.optionalAttrs isCerebras {
-      LOCPATH = "\${HOMEBREW_PREFIX:-}/opt/glibc/lib/locale";
-    };
-
     envExtra = ''
-      # Deduplicate PATH, MANPATH, FPATH
+      # Deduplicate PATH, MANPATH, FPATH (zsh-specific; no HM equivalent)
       typeset -U path manpath fpath
     '';
 
-    profileExtra = ''
-      ${if isCerebras then ''
-        # Detect Homebrew prefix
-        for _bp in /opt/homebrew /usr/local /home/linuxbrew/.linuxbrew "$HOME/.homebrew"; do
-          if [[ -x "$_bp/bin/brew" ]]; then
-            eval "$("$_bp/bin/brew" shellenv)"
-            break
-          fi
-        done
-
-        [[ -x "$HOME/.local/bin/curl" ]] && export HOMEBREW_CURL_PATH="$HOME/.local/bin/curl"
-        [[ -x "$HOME/.local/bin/git" ]] && export HOMEBREW_GIT_PATH="$HOME/.local/bin/git"
-      '' else ''
-        # Homebrew (macOS)
-        export HOMEBREW_PREFIX="/opt/homebrew"
-        export HOMEBREW_CELLAR="/opt/homebrew/Cellar"
-        export HOMEBREW_REPOSITORY="/opt/homebrew"
-        fpath[1,0]="/opt/homebrew/share/zsh/site-functions"
-        export FPATH
-        export PATH="/opt/homebrew/bin:/opt/homebrew/sbin''${PATH+:$PATH}"
-        [[ -z "''${MANPATH-}" ]] || export MANPATH=":''${MANPATH#:}"
-        export INFOPATH="/opt/homebrew/share/info:''${INFOPATH:-}"
-      ''}
-      path=(
-        $HOME/.local/share/nvim/mason/bin
-        $HOME/.local/bin
-        $path
-      )
-    '';
-
     initContent = lib.mkMerge [
-      # ── Instant prompt (must be very first) ──────────────────────────────
+      # Rootless Nix: re-exec into user-namespace chroot if nix-user-chroot is
+      # installed and we're not already inside. No-op on macOS / daemon setups.
+      (lib.mkOrder 100 (lib.optionalString pkgs.stdenv.isLinux ''
+        if [[ -x "$HOME/.local/bin/nix-user-chroot" \
+           && -d "$HOME/.nix" \
+           && -z "''${NIX_USER_CHROOT:-}" ]]; then
+          export NIX_USER_CHROOT=1
+          exec "$HOME/.local/bin/nix-user-chroot" "$HOME/.nix" /usr/bin/env zsh -l "$@"
+        fi
+      ''))
+
+      # Instant prompt — must be very first
       (lib.mkOrder 500 ''
         if [[ -r "''${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-''${(%):-%n}.zsh" ]]; then
           source "''${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-''${(%):-%n}.zsh"
@@ -93,7 +70,7 @@
         ''}
       '')
 
-      # ── fzf-tab (after compinit, before autosuggestions) ─────────────────
+      # fzf-tab — after compinit, before autosuggestions
       (lib.mkOrder 600 ''
         source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
         zstyle ':fzf-tab:*' use-fzf-default-opts yes
@@ -101,7 +78,6 @@
         zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
       '')
 
-      # ── General config ───────────────────────────────────────────────────
       (lib.mkOrder 1000 ''
         _fzf_compgen_path() { fd --hidden . "$1" }
         _fzf_compgen_dir()  { fd --type=d --hidden . "$1" }
@@ -127,6 +103,13 @@
         # Functions
         mkcd() { mkdir -p "$1" && cd "$1" }
         trash() { mv "$@" ~/.Trash }
+        rebuild() {
+          case "$(uname -s)" in
+            Darwin) sudo -H "$(command -v darwin-rebuild)" switch "$@" ;;
+            Linux)  home-manager switch --flake "$DOTFILES" "$@" ;;
+            *)      echo "rebuild: unsupported OS: $(uname -s)" >&2; return 1 ;;
+          esac
+        }
 
         ${lib.optionalString isCerebras ''
           csapiformat() {
@@ -168,7 +151,7 @@
         ''}
       '')
 
-      # ── Powerlevel10k (after everything else) ────────────────────────────
+      # Powerlevel10k — after everything else
       (lib.mkOrder 1500 ''
         source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme
         [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh

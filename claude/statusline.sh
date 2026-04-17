@@ -4,9 +4,9 @@
 
 input=$(cat)
 
-cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // ""')
-model=$(echo "$input" | jq -r '.model.display_name // ""')
-used_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+cwd=$(jq -r '.workspace.current_dir // .cwd // ""' <<<"$input")
+model=$(jq -r '.model.display_name // ""' <<<"$input")
+used_pct=$(jq -r '.context_window.used_percentage // empty' <<<"$input")
 
 # Shorten $HOME to ~
 home="$HOME"
@@ -14,7 +14,7 @@ dir="${cwd/#$home/~}"
 
 # Git branch (skip optional lock files)
 git_branch=""
-if git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
+if [ -n "$cwd" ] && git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; then
   git_branch=$(git -C "$cwd" -c core.fsmonitor=false symbolic-ref --short HEAD 2>/dev/null \
     || git -C "$cwd" -c core.fsmonitor=false rev-parse --short HEAD 2>/dev/null)
 fi

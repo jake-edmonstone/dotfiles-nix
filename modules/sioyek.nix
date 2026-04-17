@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, ... }:
 
 {
   xdg.configFile = {
@@ -8,8 +8,7 @@
 
   # Sioyek on macOS reads from ~/Library/Application Support/sioyek/,
   # not the XDG path. Redirect via symlink so the XDG configs are used.
-  home.file = lib.optionalAttrs pkgs.stdenv.isDarwin {
-    "Library/Application Support/sioyek".source =
-      config.lib.file.mkOutOfStoreSymlink "${config.xdg.configHome}/sioyek";
-  };
+  # (Module is only imported from home/darwin.nix, so no platform guard needed.)
+  home.file."Library/Application Support/sioyek".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.xdg.configHome}/sioyek";
 }

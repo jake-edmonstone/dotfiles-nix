@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(tmux display-message -p '#{pane_current_path}')"
-url="$(git remote get-url origin)"
+pane_path="$(tmux display-message -p '#{pane_current_path}')"
+if [[ -z "$pane_path" || ! -d "$pane_path" ]]; then
+  echo "open-github: invalid pane path: $pane_path" >&2
+  exit 1
+fi
+cd "$pane_path"
+url="$(git remote get-url origin 2>/dev/null || true)"
+if [[ -z "$url" ]]; then
+  echo "open-github: no origin remote in $pane_path" >&2
+  exit 1
+fi
 if [[ "$(uname -s)" == "Darwin" ]]; then
   open "$url"
 else

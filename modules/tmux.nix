@@ -12,6 +12,9 @@ in
     baseIndex = 1;
     escapeTime = 0;
     historyLimit = 50000;
+    focusEvents = true;
+    aggressiveResize = true;
+    sensibleOnTop = true; # sources tmux-sensible (display-time, status-interval, status-keys emacs, etc.)
 
     plugins = with pkgs.tmuxPlugins; [
       resurrect
@@ -33,13 +36,6 @@ in
       # Bell
       set -g bell-action any
       set -g visual-bell off
-
-      # Inlined from tmux-sensible
-      set -g display-time 4000
-      set -g status-interval 5
-      set -g status-keys emacs
-      set -g focus-events on
-      setw -g aggressive-resize on
 
       # Copy Mode
       unbind [

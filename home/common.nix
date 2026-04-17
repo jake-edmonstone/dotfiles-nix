@@ -1,4 +1,4 @@
-{ pkgs, isCerebras, ... }:
+{ config, pkgs, isCerebras, ... }:
 
 {
   imports = [
@@ -10,16 +10,20 @@
     ../modules/neovim.nix
     ../modules/claude.nix
     ../modules/scripts.nix
-    ../modules/sioyek.nix
   ];
 
   home.stateVersion = "26.05";
 
   home.sessionVariables = {
-    DOTFILES = "$HOME/dotfiles-nix";
-    TYPST_ROOT = "$HOME/typst";
+    DOTFILES = "${config.home.homeDirectory}/dotfiles-nix";
+    TYPST_ROOT = "${config.home.homeDirectory}/typst";
     UNISONLOCALHOSTNAME = "FixedHostname";
   };
+
+  home.sessionPath = [
+    "${config.home.homeDirectory}/.local/share/nvim/mason/bin"
+    "${config.home.homeDirectory}/.local/bin"
+  ];
 
   # Enable XDG on macOS so programs (lazygit, etc.) use ~/.config/ instead of
   # ~/Library/Application Support/. Many HM modules check config.xdg.enable
@@ -42,8 +46,6 @@
     wget
   ];
 
-  # ── Programs with native modules ──────────────────────────────────────────
-
   programs.bat = {
     enable = true;
     config.theme = "Dracula";
@@ -60,8 +62,6 @@
     enableZshIntegration = !isCerebras;
   };
 
-  # ── Dotfiles ──────────────────────────────────────────────────────────────
-
   home.file = {
     ".hushlogin".text = "";
     ".clang-format".source = ../dotfiles/clang-format;
@@ -71,8 +71,6 @@
     ".vim/undodir/.keep".text = "";
     ".vim/backups/.keep".text = "";
   };
-
-  # ── XDG config files ─────────────────────────────────────────────────────
 
   xdg.configFile = {
     "git/ignore".source = ../dotfiles/gitignore;

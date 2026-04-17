@@ -44,7 +44,7 @@ vim.api.nvim_create_autocmd("FileType", {
   group = augroup,
   pattern = "nvim-undotree",
   callback = function(args)
-    vim.keymap.set("n", "q", "<cmd>close<cr>", { buffer = args.buf, silent = true })
+    vim.keymap.set("n", "q", "<cmd>close<cr>", { buf = args.buf, silent = true })
   end,
 })
 

@@ -3,5 +3,7 @@ set -euo pipefail
 target="${1:?Usage: tmux-rename-session.sh <session>}"
 printf 'Renaming "%s"\nNew name: ' "$target"
 read -r name
-[ -n "$name" ] && tmux rename-session -t "$target" "$name"
+if [ -n "$name" ]; then
+  tmux rename-session -t "$target" "$name"
+fi
 clear
