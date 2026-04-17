@@ -9,6 +9,7 @@
     settings = {
       font-family = "Maple Mono NF";
       font-size = 18;
+      font-feature = [ "cv01" ];
       theme = "Dracula";
       cursor-style-blink = true;
       cursor-text = "#000000";

@@ -29,8 +29,6 @@
     ];
 
     shellAliases = {
-      rm = "rm -i";
-      cp = "cp -i";
       grep = "grep --ignore-case --color=auto";
       ta = "tmux attach -t";
       tn = "tmux new -s";
@@ -65,8 +63,11 @@
         fi
         ${lib.optionalString isCerebras ''
           : "''${PREV_GITTOP:= }"
+          # /cb/user_env/bashrc-latest is a bash script (shopt, declare -A,
+          # complete -F, etc.). `emulate -L bash -c` makes zsh locally behave
+          # like bash while sourcing so bash-specific constructs don't error.
           global_bashrc="/cb/user_env/bashrc-latest"
-          [[ -r "$global_bashrc" ]] && source "$global_bashrc"
+          [[ -r "$global_bashrc" ]] && emulate -L bash -c "source \"$global_bashrc\""
         ''}
       '')
 
@@ -102,7 +103,6 @@
 
         # Functions
         mkcd() { mkdir -p "$1" && cd "$1" }
-        trash() { mv "$@" ~/.Trash }
         rebuild() {
           case "$(uname -s)" in
             Darwin) sudo -H "$(command -v darwin-rebuild)" switch "$@" ;;
@@ -129,25 +129,20 @@
           print(" ".join(f"{b:>2}" for b in bits))
           ' "$1"
           }
-          cbformat() { MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" INSTALLROOT="$(pwd)/build-install" cbrun -- srun -c16 make format }
-          cbclean() { MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" INSTALLROOT="$(pwd)/build-install" cbrun -- srun -c16 make clean }
-          cbbuild() {
-            local jobs="''${1:-32}"
+          _cbrun() {
+            local cores="$1" target="$2"; shift 2
             MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" \
             INSTALLROOT="$(pwd)/build-install" \
-            cbrun -- srun -c"$jobs" make -j"$jobs" build
+            cbrun -- srun -c"$cores" make "$@" "$target"
           }
-          cbinstall() { MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" INSTALLROOT="$(pwd)/build-install" cbrun -- srun -c32 make install }
-          cbtest() { MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" INSTALLROOT="$(pwd)/build-install" cbrun -- srun -c32 make test }
-          cbtestci() { MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" INSTALLROOT="$(pwd)/build-install" cbrun -- srun -c32 make test_ci }
-          cbllvmtest() {
-            local jobs="''${1:-32}"
-            MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" INSTALLROOT="$(pwd)/build-install" cbrun -- srun -c"$jobs" make test_llvm
-          }
-          cbcasmtest() {
-            local jobs="''${1:-32}"
-            MONOLITH_INSTALLROOT="$HOME/ws/monolith-install" INSTALLROOT="$(pwd)/build-install" cbrun -- srun -c"$jobs" make test_casm
-          }
+          cbformat()   { local j="''${1:-16}"; _cbrun "$j" format }
+          cbclean()    { local j="''${1:-16}"; _cbrun "$j" clean }
+          cbinstall()  { local j="''${1:-32}"; _cbrun "$j" install }
+          cbtest()     { local j="''${1:-32}"; _cbrun "$j" test }
+          cbtestci()   { local j="''${1:-32}"; _cbrun "$j" test_ci }
+          cbbuild()    { local j="''${1:-32}"; _cbrun "$j" build -j"$j" }
+          cbllvmtest() { local j="''${1:-32}"; _cbrun "$j" test_llvm }
+          cbcasmtest() { local j="''${1:-32}"; _cbrun "$j" test_casm }
         ''}
       '')
 

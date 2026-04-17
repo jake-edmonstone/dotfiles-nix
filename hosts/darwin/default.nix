@@ -73,7 +73,6 @@
       cleanup = "uninstall";
     };
     casks = [
-      "claude-code@latest"
       "docker-desktop"
       "hammerspoon"
       "obsidian"

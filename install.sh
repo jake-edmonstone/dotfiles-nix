@@ -16,10 +16,12 @@ is_darwin() { [[ "$(uname -s)" == "Darwin" ]]; }
 # Can we become root without an interactive prompt?
 can_sudo() { [[ "$EUID" -eq 0 ]] || sudo -n true 2>/dev/null; }
 
-# Any of: daemon install on PATH, daemon install not on PATH yet, rootless install
+# Any of: daemon install on PATH, daemon install not on PATH yet, rootless install.
+# Rootless uses a sentinel file so a half-downloaded / interrupted install
+# doesn't claim completion just because a stray binary exists.
 has_nix_on_path()  { command -v nix >/dev/null 2>&1; }
 has_nix_daemon()   { [[ -x /nix/var/nix/profiles/default/bin/nix ]]; }
-has_nix_rootless() { [[ -x "$NIX_ROOT/var/nix/profiles/default/bin/nix" ]]; }
+has_nix_rootless() { [[ -f "$NIX_ROOT/.install-complete" ]]; }
 
 # ──────────────────────────────────────────────────────────────────────────────
 # macOS prerequisites
@@ -45,7 +47,10 @@ install_nix_darwin() {
   msg "Installing Determinate Nix (macOS package)"
   local tmpdir pkg
   tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
+  # Double-quote the trap so $tmpdir expands at trap-set time. With single
+  # quotes, it expands at EXIT time — but $tmpdir is `local`, so it's already
+  # unset by then and the pkg leaks in /tmp (~100MB).
+  trap "rm -rf '$tmpdir'" EXIT
   pkg="$tmpdir/Determinate.pkg"
   curl --proto '=https' --tlsv1.2 -sSfL \
     https://install.determinate.systems/determinate-pkg/stable/Universal \
@@ -59,6 +64,51 @@ install_nix_darwin() {
 install_nix_linux_daemon() {
   msg "Installing Determinate Nix (Linux, daemon mode)"
   curl --proto '=https' --tlsv1.2 -sSfL https://install.determinate.systems/nix | sh -s -- install
+}
+
+write_linux_bootstrap_bashrc() {
+  # On rootless Nix, home-manager would write ~/.bashrc as a symlink into
+  # /nix/store — which isn't accessible at SSH login before entering the
+  # chroot. Instead, we write a small REAL ~/.bashrc + ~/.bash_profile that
+  # do the chroot entry and then exec zsh. Host-specific extras (corporate
+  # env files, custom PATH entries, etc.) get sourced from ~/.bashrc.extra
+  # if present — a per-host home-manager module materializes that file.
+  msg "Writing bootstrap ~/.bashrc and ~/.bash_profile"
+
+  # One-time backup of any pre-existing system-default bashrc before we stomp it
+  for f in "$HOME/.bashrc" "$HOME/.bash_profile"; do
+    if [[ -f "$f" && ! -L "$f" && ! -e "$f.before-nix" ]] \
+      && ! grep -q 'dotfiles-nix install.sh' "$f" 2>/dev/null; then
+      cp "$f" "$f.before-nix"
+    fi
+  done
+
+  cat > "$HOME/.bash_profile" <<'EOF'
+# Managed by ~/dotfiles-nix install.sh. DO NOT EDIT — overwritten on rebuild.
+[ -r ~/.bashrc ] && . ~/.bashrc
+EOF
+
+  cat > "$HOME/.bashrc" <<'EOF'
+# Managed by ~/dotfiles-nix install.sh. DO NOT EDIT — overwritten on rebuild.
+# Real file (not a /nix/store symlink) so bash can read it at SSH login,
+# before nix-user-chroot is entered and /nix/store becomes accessible.
+
+# Source system definitions
+[ -f /etc/bashrc ] && . /etc/bashrc
+
+# Host-specific extras, written as a real file by home-manager activation
+[ -r "$HOME/.bashrc.extra" ] && . "$HOME/.bashrc.extra"
+
+# Switch interactive shells to zsh, entering the nix-user-chroot if installed
+# so zsh starts with /nix/store already visible.
+if [[ $- == *i* ]] && command -v zsh >/dev/null 2>&1; then
+  if [ -x "$HOME/.local/bin/nix-user-chroot" ] && [ -d "$HOME/.nix" ]; then
+    export NIX_USER_CHROOT=1
+    exec "$HOME/.local/bin/nix-user-chroot" "$HOME/.nix" /usr/bin/env zsh -l
+  fi
+  exec zsh -l
+fi
+EOF
 }
 
 install_nix_linux_rootless() {
@@ -77,21 +127,26 @@ install_nix_linux_rootless() {
   mkdir -p "$(dirname "$NIX_USER_CHROOT")" "$NIX_ROOT"
   if [[ ! -x "$NIX_USER_CHROOT" ]]; then
     msg "Downloading nix-user-chroot ${NIX_USER_CHROOT_VERSION} (${arch})"
-    curl -sSfL "$chroot_url" -o "$NIX_USER_CHROOT"
-    chmod +x "$NIX_USER_CHROOT"
+    # Download to .tmp first, then atomic rename, so an interrupted curl
+    # never leaves a truncated-but-executable binary on disk.
+    curl -sSfL "$chroot_url" -o "$NIX_USER_CHROOT.tmp"
+    chmod +x "$NIX_USER_CHROOT.tmp"
+    mv "$NIX_USER_CHROOT.tmp" "$NIX_USER_CHROOT"
   fi
 
   # Inside the chroot, /nix is bind-mounted to $HOME/.nix (writable by user).
   # Upstream Nix --no-daemon believes it's writing to /nix and succeeds.
+  # Touch a sentinel at the end so interrupted runs get retried fully.
   if ! has_nix_rootless; then
     msg "Bootstrapping upstream Nix inside the chroot"
     "$NIX_USER_CHROOT" "$NIX_ROOT" bash -c '
       set -euo pipefail
       curl --proto "=https" --tlsv1.2 -sSfL https://nixos.org/nix/install | sh -s -- --no-daemon
       mkdir -p ~/.config/nix
-      grep -qxF "experimental-features = nix-command flakes" ~/.config/nix/nix.conf 2>/dev/null \
+      grep -qF "experimental-features" ~/.config/nix/nix.conf 2>/dev/null \
         || echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
     '
+    touch "$NIX_ROOT/.install-complete"
   fi
 }
 
@@ -103,6 +158,12 @@ if ! (has_nix_on_path || has_nix_daemon || has_nix_rootless); then
   else
     install_nix_linux_rootless
   fi
+fi
+
+# Linux: write bootstrap bash files (real, not nix-store symlinks) so SSH
+# login works before the chroot is entered. Idempotent — safe to re-run.
+if ! is_darwin; then
+  write_linux_bootstrap_bashrc
 fi
 
 # Source nix into this shell if not already on PATH (daemon installs only —
@@ -172,15 +233,21 @@ else
   # additional machines.
   msg "Building home-manager configuration"
   # -b bak: back up any pre-existing ~/.bashrc, ~/.zshrc etc. so home-manager
-  # can take ownership without manual cleanup on first-run migration.
+  # can take ownership without manual cleanup. Only pass it on the FIRST
+  # activation — on re-runs ~/.bashrc.bak already exists and HM would abort
+  # rather than overwrite it.
+  hm_args=( switch --flake "$DOTFILES" )
+  if [[ ! -e "$HOME/.local/state/home-manager/gcroots/current-home" ]]; then
+    hm_args+=( -b bak )
+  fi
   if has_nix_on_path; then
-    nix run home-manager/master -- switch --flake "$DOTFILES" -b bak
+    nix run home-manager/master -- "${hm_args[@]}"
   else
     # Rootless — run through nix-user-chroot so /nix/store is visible
     "$NIX_USER_CHROOT" "$NIX_ROOT" bash -c "
       set -euo pipefail
       . \$HOME/.nix-profile/etc/profile.d/nix.sh
-      nix run home-manager/master -- switch --flake '$DOTFILES' -b bak
+      nix run home-manager/master -- ${hm_args[*]@Q}
     "
   fi
 fi

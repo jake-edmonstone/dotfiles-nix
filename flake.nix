@@ -21,9 +21,16 @@
     };
 
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+
+    # Tracks upstream @anthropic-ai/claude-code within ~30 min via hourly
+    # GitHub Actions. The nixpkgs claude-code trails by 5-10 versions.
+    claude-code = {
+      url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, determinate, nix-darwin, home-manager, nix-homebrew, ... }: {
+  outputs = { nixpkgs, determinate, nix-darwin, home-manager, nix-homebrew, claude-code, ... }: {
 
     darwinConfigurations."Jakes-MacBook" = nix-darwin.lib.darwinSystem {
       system = "aarch64-darwin";
@@ -32,6 +39,7 @@
         determinate.darwinModules.default
         nix-homebrew.darwinModules.nix-homebrew
         home-manager.darwinModules.home-manager
+        { nixpkgs.overlays = [ claude-code.overlays.default ]; }
         {
           home-manager.useGlobalPkgs = true;
           home-manager.useUserPackages = true;
@@ -44,10 +52,16 @@
 
     # Keyed as "<user>@<hostname>" so bare `home-manager switch --flake .`
     # auto-resolves (home-manager's CLI tries $USER@$(hostname) variants).
-    # isCerebras auto-detects via /cb presence — same marker nvim uses.
+    # isCerebras is hardcoded true here because the attr key already names
+    # the Cerebras host — builtins.pathExists is unavailable in pure flake
+    # eval for paths outside the flake tree, so we can't detect at runtime.
     homeConfigurations."jakee@jakee-vm" = home-manager.lib.homeManagerConfiguration {
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-      extraSpecialArgs = { isCerebras = builtins.pathExists "/cb"; };
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        config.allowUnfree = true;
+        overlays = [ claude-code.overlays.default ];
+      };
+      extraSpecialArgs = { isCerebras = true; };
       modules = [ ./home/cerebras.nix ];
     };
   };

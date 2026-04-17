@@ -1,4 +1,4 @@
-{ config, pkgs, isCerebras, ... }:
+{ config, lib, pkgs, isCerebras, ... }:
 
 {
   imports = [
@@ -14,6 +14,18 @@
 
   home.stateVersion = "26.05";
 
+  # Install the home-manager CLI so `home-manager switch` and the `rebuild`
+  # function work after the first activation on standalone (Linux) setups.
+  # On nix-darwin this is provided by `darwin-rebuild`, but Linux needs
+  # explicit opt-in.
+  programs.home-manager.enable = true;
+
+  # On standalone Linux (Cerebras), home-manager needs explicit opt-in to set
+  # up PATH to include ~/.nix-profile/bin. Without this, tools installed via
+  # home.packages (home-manager, nvim, ripgrep, claude-code, …) aren't on PATH
+  # inside the chroot-spawned zsh. nix-darwin handles the equivalent on Mac.
+  targets.genericLinux.enable = pkgs.stdenv.isLinux;
+
   home.sessionVariables = {
     DOTFILES = "${config.home.homeDirectory}/dotfiles-nix";
     TYPST_ROOT = "${config.home.homeDirectory}/typst";
@@ -23,6 +35,10 @@
   home.sessionPath = [
     "${config.home.homeDirectory}/.local/share/nvim/mason/bin"
     "${config.home.homeDirectory}/.local/bin"
+  ] ++ lib.optionals pkgs.stdenv.isLinux [
+    # Standalone home-manager on Linux: no nix-darwin / NixOS module to set
+    # this up automatically, so add the user nix profile explicitly.
+    "${config.home.profileDirectory}/bin"
   ];
 
   # Enable XDG on macOS so programs (lazygit, etc.) use ~/.config/ instead of
@@ -34,6 +50,9 @@
     ripgrep
     fd
     tree-sitter
+    trash-cli
+    cpulimit
+    claude-code # from sadjow/claude-code-nix overlay — tracks upstream hourly
     typst
     nodejs
     clang-tools # provides clang-format
@@ -44,6 +63,8 @@
     tree
     unison
     wget
+  ] ++ lib.optionals pkgs.stdenv.isLinux [
+    xclip # tmux copy-mode on Linux pipes to xclip; Rocky 9 doesn't ship it
   ];
 
   programs.bat = {

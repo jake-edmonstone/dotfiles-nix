@@ -1,7 +1,7 @@
-{ pkgs, isCerebras, ... }:
+{ pkgs, ... }:
 
 let
-  clip = if isCerebras then "xclip -selection clipboard" else "pbcopy";
+  clip = if pkgs.stdenv.isDarwin then "pbcopy" else "xclip -selection clipboard";
 in
 {
   programs.tmux = {
