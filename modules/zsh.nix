@@ -71,6 +71,15 @@
       # getpwuid-backed $USERNAME getter returns "". No assignment in zshenv
       # can stick because zsh re-reads the getter on every access. The fix
       # lives in ~/.p10k.zsh, which uses $USER (set by PAM) instead of %n.
+
+      # Pre-seed P9K_SSH so p10k skips its internal _p9k_init_ssh probe
+      # (measured ~11 ms, 26% of zsh cold startup). The probe gathers info we
+      # already have via standard SSH env vars.
+      if [[ -n "''${SSH_CONNECTION:-}" || -n "''${SSH_CLIENT:-}" || -n "''${SSH_TTY:-}" ]]; then
+        typeset -g P9K_SSH=1
+      else
+        typeset -g P9K_SSH=0
+      fi
     '';
 
     initContent = lib.mkMerge [
@@ -83,7 +92,6 @@
         # covers zsh-as-login-shell hosts where bash never runs. Single grep
         # over all /proc/*/mountinfo: ~10x faster than a per-file awk loop.
         if [[ -z "''${NIX_USER_CHROOT:-}" ]]; then
-          local _live_roots _dir _now _mt
           _live_roots=$(grep -ohE '/tmp/nix-chroot\.[A-Za-z0-9]+' /proc/[0-9]*/mountinfo 2>/dev/null | sort -u)
           _now=$(date +%s 2>/dev/null)
           for _dir in /tmp/nix-chroot.*(N); do
@@ -93,6 +101,7 @@
             print -r -- "$_live_roots" | grep -qxF "$_dir" && continue
             rm -rf -- "$_dir" 2>/dev/null || true
           done
+          unset _live_roots _dir _now _mt
         fi
 
         if [[ -x "$HOME/.local/bin/nix-user-chroot" \
@@ -121,22 +130,33 @@
         ''}
       '')
 
-      # fzf-tab — after compinit, before autosuggestions
+      # fzf key bindings + completion — sourced from the nix store directly
+      # instead of `source <(fzf --zsh)` (the programs.fzf.enableZshIntegration
+      # default), which forks fzf once per shell startup. On macOS with EDR in
+      # the mix that's ~6 ms of pure overhead per spawn.
+      # MUST come BEFORE fzf-tab: fzf-tab's README requires it to be the last
+      # plugin to bind ^I, and fzf's completion.zsh also binds ^I.
       (lib.mkOrder 600 ''
+        source ${pkgs.fzf}/share/fzf/key-bindings.zsh
+        source ${pkgs.fzf}/share/fzf/completion.zsh
+      '')
+
+      # fzf-tab — after compinit and after fzf's own bindings
+      (lib.mkOrder 650 ''
         source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
         zstyle ':fzf-tab:*' use-fzf-default-opts yes
         zstyle ':fzf-tab:*' prefix ""
         zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
       '')
 
-      # fzf key bindings + completion — sourced from the nix store directly
-      # instead of `source <(fzf --zsh)` (the programs.fzf.enableZshIntegration
-      # default), which forks fzf once per shell startup. On macOS with EDR in
-      # the mix that's ~6 ms of pure overhead per spawn.
-      (lib.mkOrder 650 ''
-        source ${pkgs.fzf}/share/fzf/key-bindings.zsh
-        source ${pkgs.fzf}/share/fzf/completion.zsh
-      '')
+      # zoxide init — sourced from a nix-built static file instead of the
+      # `eval "$(zoxide init zsh)"` fork that programs.zoxide.enableZshIntegration
+      # emits. Mac only; on Cerebras zoxide is installed but not integrated.
+      (lib.mkOrder 680 (lib.optionalString (!isCerebras) ''
+        source ${pkgs.runCommand "zoxide-init-zsh" {} ''
+          ${pkgs.zoxide}/bin/zoxide init zsh > $out
+        ''}
+      ''))
 
       # zsh-autosuggestions perf knobs — sourced after the plugin is enabled by
       # home-manager (programs.zsh.autosuggestion.enable).
@@ -231,29 +251,42 @@
 
   # Compile the big zsh source files to .zwc bytecode on every activation so
   # zsh loads them via mmap instead of re-parsing. ~10-25 ms cold-start saving.
-  # ~/.zshrc and ~/.zshenv are symlinks into the nix store; zcompile reads the
-  # target but writes .zwc next to the symlink. We rebuild unconditionally
-  # because nix-store mtimes are frozen to epoch so a -nt check would never
-  # trigger; activations are rare (only on HM switch).
+  # With xdg.enable = true, HM places .zshrc and the "real" .zshenv under
+  # $HOME/${programs.zsh.dotDir} (defaults to ".config/zsh" on Mac here), with
+  # a small stub .zshenv at $HOME that sources the real one. We compile all
+  # three plus ~/.p10k.zsh. zcompile reads the symlink target but writes .zwc
+  # next to the symlink (in $HOME/$dotDir, writable). We rebuild unconditionally
+  # because nix-store mtimes are frozen so a -nt check would never trigger;
+  # activations are rare.
   #
-  # On Cerebras, $HOME is slow EFS — writing .zwc there would negate the win,
-  # since reading the .zwc over EFS can cost as much as parsing the source that
-  # lives on fast NFS via the ~/.nix bind mount. So we compile to fast NFS and
-  # symlink $HOME/.FILE.zwc → that location.
-  home.activation.zcompileZshFiles = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+  # On Cerebras, $HOME is slow EFS. Writing .zwc there would negate the win.
+  # So we compile to fast NFS and symlink the target location → fast NFS path.
+  home.activation.zcompileZshFiles = let
+    # In current home-manager, programs.zsh.dotDir is an absolute path (e.g.
+    # /Users/jbedm/.config/zsh) — not relative to $HOME. Do NOT prepend home.
+    zshDir = config.programs.zsh.dotDir;
+    files = [
+      "${zshDir}/.zshrc"
+      "${zshDir}/.zshenv"
+      "${config.home.homeDirectory}/.zshenv"
+      "${config.home.homeDirectory}/.p10k.zsh"
+    ];
+  in lib.hm.dag.entryAfter [ "writeBoundary" ] (
     if isCerebras then ''
       zwc_dir="/net/jakee-vm/srv/nfs/jakee-data/.cache/zsh/zwc"
       mkdir -p "$zwc_dir"
-      for name in zshrc zshenv p10k.zsh; do
-        src="$HOME/.$name"
-        out="$zwc_dir/$name.zwc"
+      _idx=0
+      for src in ${lib.concatMapStringsSep " " (f: "\"${f}\"") files}; do
+        _idx=$((_idx+1))
+        out="$zwc_dir/zsh-$_idx.zwc"
         if [[ -f "$src" ]]; then
           ${pkgs.zsh}/bin/zsh -c "zcompile -R '$out' '$src'" 2>/dev/null \
             && ln -sfn "$out" "$src.zwc"
         fi
       done
+      unset _idx
     '' else ''
-      for f in "$HOME/.zshrc" "$HOME/.zshenv" "$HOME/.p10k.zsh"; do
+      for f in ${lib.concatMapStringsSep " " (f: "\"${f}\"") files}; do
         if [[ -f "$f" ]]; then
           ${pkgs.zsh}/bin/zsh -c "zcompile -R '$f'" 2>/dev/null || true
         fi

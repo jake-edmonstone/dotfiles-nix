@@ -79,7 +79,11 @@
 
   programs.zoxide = {
     enable = true;
-    enableZshIntegration = !isCerebras;
+    # Disabled: HM's implementation emits `eval "$(zoxide init zsh)"` which
+    # forks zoxide on every shell startup. On macOS with EDR that's ~6-9 ms.
+    # Mac sources a nix-built static init file in modules/zsh.nix mkOrder 680.
+    # On Cerebras the integration was already disabled.
+    enableZshIntegration = false;
   };
 
   home.file = {

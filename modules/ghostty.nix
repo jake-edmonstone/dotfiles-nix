@@ -19,7 +19,11 @@
       mouse-hide-while-typing = true;
       macos-titlebar-style = "hidden";
       macos-option-as-alt = true;
-      shell-integration-features = "no-cursor,sudo,title";
+      # no-title: tmux already sets the window title from session name.
+      # no-sudo: we rarely invoke sudo interactively and the wrapper adds a hook.
+      # no-cursor: we set our own cursor style via cursor-style-blink.
+      # OSC 133 prompt marks stay on — they're core, not a toggle.
+      shell-integration-features = "no-cursor,no-sudo,no-title";
       confirm-close-surface = false;
       bell-features = "attention";
     };

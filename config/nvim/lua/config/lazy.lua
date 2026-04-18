@@ -37,10 +37,10 @@ require("lazy").setup({
     -- version = "*", -- try installing the latest stable version for plugins that support semver
   },
   install = { colorscheme = { "dracula" } },
-  checker = {
-    enabled = true, -- check for plugin updates periodically
-    notify = false, -- notify on update
-  }, -- automatically check for plugin updates
+  -- Plugins are nix-pinned via lazy-lock.json; runtime update checks + mtime
+  -- polling are noise here and pull in lazy.view.commands/lazy.manage at startup.
+  checker = { enabled = false },
+  change_detection = { enabled = false, notify = false },
   performance = {
     rtp = {
       -- disable some rtp plugins
