@@ -106,6 +106,25 @@ if [ -d /usr/lib/locale/en_US.utf8 ] && [ ! -d /usr/lib/locale/en_US.UTF-8 ]; th
   export LANG=en_US.utf8
 fi
 
+# Sweep stale /tmp/nix-chroot.* dirs left behind when a previous session was
+# killed by SIGKILL/OOM/abrupt SSH drop. nix-user-chroot's cleanup only runs
+# on clean child exit. Single grep over all /proc/*/mountinfo (lsof can't
+# cross namespaces; one grep is ~10x faster than a per-file loop). Race-safe:
+# skips dirs younger than 5s, skips dirs referenced by any live mount
+# namespace, only touches dirs we own.
+if [[ $- == *i* ]] && [ -z "${NIX_USER_CHROOT:-}" ]; then
+  _live_roots=$(grep -ohE '/tmp/nix-chroot\.[A-Za-z0-9]+' /proc/[0-9]*/mountinfo 2>/dev/null | sort -u)
+  _now=$(date +%s 2>/dev/null)
+  for _dir in /tmp/nix-chroot.*; do
+    [ -d "$_dir" ] && [ -O "$_dir" ] || continue
+    _mt=$(stat -c %Y "$_dir" 2>/dev/null) || continue
+    [ $((_now - _mt)) -lt 5 ] && continue
+    printf '%s\n' "$_live_roots" | grep -qxF "$_dir" && continue
+    rm -rf -- "$_dir" 2>/dev/null || true
+  done
+  unset _live_roots _dir _now _mt
+fi
+
 # Switch interactive shells to zsh, entering the nix-user-chroot if installed
 # so zsh starts with /nix/store already visible. Prepend ~/.nix-profile/bin to
 # PATH before exec so `env zsh` inside the chroot finds Nix's zsh (patchelf'd

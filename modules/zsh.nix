@@ -56,6 +56,24 @@
       # Rootless Nix: re-exec into user-namespace chroot if nix-user-chroot is
       # installed and we're not already inside. No-op on macOS / daemon setups.
       (lib.mkOrder 100 (lib.optionalString pkgs.stdenv.isLinux ''
+        # Sweep stale /tmp/nix-chroot.* dirs from sessions killed by SIGKILL/OOM/
+        # abrupt SSH drop (nix-user-chroot's cleanup only runs on clean exit).
+        # Same logic lives in install.sh's generated ~/.bashrc — this branch
+        # covers zsh-as-login-shell hosts where bash never runs. Single grep
+        # over all /proc/*/mountinfo: ~10x faster than a per-file awk loop.
+        if [[ -z "''${NIX_USER_CHROOT:-}" ]]; then
+          local _live_roots _dir _now _mt
+          _live_roots=$(grep -ohE '/tmp/nix-chroot\.[A-Za-z0-9]+' /proc/[0-9]*/mountinfo 2>/dev/null | sort -u)
+          _now=$(date +%s 2>/dev/null)
+          for _dir in /tmp/nix-chroot.*(N); do
+            [[ -d "$_dir" && -O "$_dir" ]] || continue
+            _mt=$(stat -c %Y "$_dir" 2>/dev/null) || continue
+            (( _now - _mt < 5 )) && continue
+            print -r -- "$_live_roots" | grep -qxF "$_dir" && continue
+            rm -rf -- "$_dir" 2>/dev/null || true
+          done
+        fi
+
         if [[ -x "$HOME/.local/bin/nix-user-chroot" \
            && -d "$HOME/.nix" \
            && -z "''${NIX_USER_CHROOT:-}" ]]; then
