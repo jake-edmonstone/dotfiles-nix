@@ -10,6 +10,9 @@
   home = {
     username = "jedmonstone";
     homeDirectory = "/home/STRIKETECH/jedmonstone";
+    # GTS intercepts HTTPS with a CA installed in AlmaLinux's system trust
+    # bundle. Nix otherwise uses its bundled Mozilla roots and rejects it.
+    sessionVariables.NIX_SSL_CERT_FILE = "/etc/pki/tls/certs/ca-bundle.crt";
   };
 
   programs = {

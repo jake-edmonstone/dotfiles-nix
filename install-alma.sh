@@ -10,6 +10,8 @@ EXPECTED_USER="jedmonstone"
 EXPECTED_HOME="/home/STRIKETECH/$EXPECTED_USER"
 EXPECTED_HOST="jedmonstone-dev.striketechnologies.com"
 EXPECTED_DOTFILES="$EXPECTED_HOME/nix-config"
+SYSTEM_CA_BUNDLE="/etc/pki/tls/certs/ca-bundle.crt"
+NIX_CUSTOM_CONF="/etc/nix/nix.custom.conf"
 
 if [[ "$(id -u)" -eq 0 ]]; then
   err "Run this script as $EXPECTED_USER, not as root; it will use sudo when needed"
@@ -52,12 +54,17 @@ if [[ "$DOTFILES" != "$EXPECTED_DOTFILES" ]]; then
   exit 1
 fi
 
-for command in curl git sudo; do
+for command in curl git grep sed sudo systemctl tee; do
   if ! command -v "$command" >/dev/null 2>&1; then
     err "Required bootstrap command is missing: $command"
     exit 1
   fi
 done
+
+if [[ ! -r "$SYSTEM_CA_BUNDLE" ]]; then
+  err "AlmaLinux CA bundle is missing or unreadable: $SYSTEM_CA_BUNDLE"
+  exit 1
+fi
 
 if ! sudo -n true; then
   err "Passwordless sudo is required for the multi-user Nix installation"
@@ -71,7 +78,8 @@ elif [[ -x /nix/var/nix/profiles/default/bin/nix ]]; then
 else
   msg "Installing Determinate Nix"
   curl --proto '=https' --tlsv1.2 -sSfL \
-    https://install.determinate.systems/nix | sh -s -- install --no-confirm
+    https://install.determinate.systems/nix | sh -s -- install --no-confirm \
+    --ssl-cert-file "$SYSTEM_CA_BUNDLE"
   NIX_BIN="/nix/var/nix/profiles/default/bin/nix"
 fi
 
@@ -85,6 +93,23 @@ if [[ "$($NIX_BIN --version 2>/dev/null || true)" != *"Determinate Nix"* ]]; the
   err "Detected: $($NIX_BIN --version 2>/dev/null || echo unknown)"
   exit 1
 fi
+
+# Nix uses its own CA bundle unless both the daemon and client are directed to
+# AlmaLinux's trust store. This is required on GTS because HTTPS is intercepted
+# by a corporate CA. Determinate includes nix.custom.conf from nix.conf.
+if ! sudo grep -qFx "ssl-cert-file = $SYSTEM_CA_BUNDLE" "$NIX_CUSTOM_CONF" 2>/dev/null; then
+  msg "Configuring Nix to use the AlmaLinux CA bundle"
+  if sudo grep -qE '^[[:space:]]*ssl-cert-file[[:space:]]*=' "$NIX_CUSTOM_CONF" 2>/dev/null; then
+    sudo sed -i -E \
+      "s|^[[:space:]]*ssl-cert-file[[:space:]]*=.*$|ssl-cert-file = $SYSTEM_CA_BUNDLE|" \
+      "$NIX_CUSTOM_CONF"
+  else
+    printf '\nssl-cert-file = %s\n' "$SYSTEM_CA_BUNDLE" | \
+      sudo tee -a "$NIX_CUSTOM_CONF" >/dev/null
+  fi
+  sudo systemctl restart nix-daemon.service
+fi
+export NIX_SSL_CERT_FILE="$SYSTEM_CA_BUNDLE"
 
 msg "Activating Home Manager configuration $HOME_ATTR"
 home_manager=(
