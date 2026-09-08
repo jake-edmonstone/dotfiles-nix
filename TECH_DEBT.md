@@ -11,6 +11,9 @@ package.
 Neovim nightly is used so `autoread` notices external edits through file-system
 watchers without custom polling autocommands.
 
+As of 2026-09-07, nixpkgs unstable packages Neovim 0.12.5. Its release branch
+does not contain the watcher commit, so the nightly override is still required.
+
 - Upstream: [neovim/neovim#37971](https://github.com/neovim/neovim/pull/37971)
 - Temporary code:
   - `flake.nix`: the `neovim-nightly-overlay` input and Darwin package override.
@@ -38,7 +41,8 @@ redraws in a pane behind `display-popup` unnecessarily repaint the popup.
 - tmux 3.7c was released on 2026-08-17, but does not contain the fix. Its
   `screen_redraw_update()` still marks an existing overlay for repaint on every
   redraw, and neither its commit range nor `CHANGES` includes the master fix.
-  Current nixpkgs still packages 3.7b.
+  As of 2026-09-07, nixpkgs unstable packages 3.7c, so updating nixpkgs does not
+  remove the need for the 3.6b pin.
 - When nixpkgs ships a tmux release containing the fix, remove the overlay,
   rebuild, restart the tmux server, and test the session picker while Codex is
   actively generating text. Keep the pin if the popup title still flickers or
