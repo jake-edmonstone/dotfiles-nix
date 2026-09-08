@@ -227,6 +227,7 @@ in
     };
     casks = [
       "chatgpt"
+      "crystalfetch"
       "discord"
       # "docker-desktop"
       "google-chrome"
@@ -234,7 +235,9 @@ in
       "helium-browser"
       "keyboardcleantool"
       "microsoft-outlook"
+      "microsoft-powerpoint"
       "microsoft-teams"
+      "microsoft-word"
       # "nordvpn"
       # "notion"
       # "obsidian"
@@ -245,11 +248,8 @@ in
       "zoom"
     ];
     masApps = {
-      "CrystalFetch ISO Downloader" = 6454431289;
       "Goodnotes: AI Notes, Docs, PDF" = 1444383602;
       "HP Smart" = 1474276998;
-      "Microsoft PowerPoint" = 462062816;
-      "Microsoft Word" = 462054704;
       "uBlock Origin Lite" = 6745342698;
     };
   };
