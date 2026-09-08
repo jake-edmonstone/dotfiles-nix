@@ -111,6 +111,11 @@ if ! sudo grep -qFx "ssl-cert-file = $SYSTEM_CA_BUNDLE" "$NIX_CUSTOM_CONF" 2>/de
 fi
 export NIX_SSL_CERT_FILE="$SYSTEM_CA_BUNDLE"
 
+# Home Manager requires either its XDG profile directory or a legacy global
+# per-user profile directory to exist before the first switch. Prefer the
+# user-owned XDG location for this directory-service account.
+mkdir -p "$HOME/.local/state/nix/profiles"
+
 msg "Activating Home Manager configuration $HOME_ATTR"
 home_manager=(
   "$NIX_BIN" run "$DOTFILES#home-manager" --
