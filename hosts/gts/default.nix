@@ -16,6 +16,11 @@
   };
 
   programs = {
+    bash.initExtra = lib.mkOrder 2900 ''
+      module purge
+      module load gcc/15.2.0
+    '';
+
     git = {
       settings.user = {
         name = "Jake Edmonstone";

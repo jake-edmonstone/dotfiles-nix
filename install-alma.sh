@@ -54,7 +54,7 @@ if [[ "$DOTFILES" != "$EXPECTED_DOTFILES" ]]; then
   exit 1
 fi
 
-for command in curl git grep sed sudo systemctl tee; do
+for command in curl git grep rpm sed sudo systemctl tee yum; do
   if ! command -v "$command" >/dev/null 2>&1; then
     err "Required bootstrap command is missing: $command"
     exit 1
@@ -69,6 +69,11 @@ fi
 if ! sudo -n true; then
   err "Passwordless sudo is required for the multi-user Nix installation"
   exit 1
+fi
+
+if ! rpm -q strike-gcc152 >/dev/null 2>&1; then
+  msg "Installing the Strike GCC 15.2 toolchain"
+  sudo yum install -y strike-gcc152.x86_64
 fi
 
 if command -v nix >/dev/null 2>&1; then
