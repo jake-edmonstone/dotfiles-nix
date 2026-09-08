@@ -7,6 +7,7 @@ WEBSITE_NOTES_REL="documents/course-notes"
 DATE=$(date +%Y-%m-%d)
 
 COURSE_PATHS=(
+  #academic/undergrad/4A/pmath352
 )
 
 tmpdir="$(mktemp -d)"
