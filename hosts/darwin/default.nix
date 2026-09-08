@@ -233,6 +233,7 @@ in
       "hammerspoon"
       "helium-browser"
       "keyboardcleantool"
+      "microsoft-outlook"
       "microsoft-teams"
       # "nordvpn"
       # "notion"
@@ -247,7 +248,6 @@ in
       "CrystalFetch ISO Downloader" = 6454431289;
       "Goodnotes: AI Notes, Docs, PDF" = 1444383602;
       "HP Smart" = 1474276998;
-      # "Microsoft Outlook" = 985367838;
       "Microsoft PowerPoint" = 462062816;
       "Microsoft Word" = 462054704;
       "uBlock Origin Lite" = 6745342698;

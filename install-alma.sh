@@ -5,7 +5,7 @@ msg() { printf "\033[1;32m==>\033[0m %s\n" "$*"; }
 err() { printf "\033[1;31mERROR:\033[0m %s\n" "$*" >&2; }
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
-HOME_ATTR="jedmonstone@jedmonstone-dev"
+HOME_ATTR="jedmonstone@jedmonstone-dev.striketechnologies.com"
 EXPECTED_USER="jedmonstone"
 EXPECTED_HOME="/home/STRIKETECH/$EXPECTED_USER"
 EXPECTED_HOST="jedmonstone-dev.striketechnologies.com"

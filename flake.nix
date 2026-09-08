@@ -105,13 +105,15 @@
         ];
       };
 
-      homeConfigurations."jedmonstone@jedmonstone-dev" = home-manager.lib.homeManagerConfiguration {
-        pkgs = import nixpkgs {
-          system = "x86_64-linux";
-          inherit overlays;
-          config.allowUnfree = true;
-        };
-        modules = [ ./hosts/gts ];
-      };
+      homeConfigurations."jedmonstone@jedmonstone-dev.striketechnologies.com" =
+        home-manager.lib.homeManagerConfiguration
+          {
+            pkgs = import nixpkgs {
+              system = "x86_64-linux";
+              inherit overlays;
+              config.allowUnfree = true;
+            };
+            modules = [ ./hosts/gts ];
+          };
     };
 }
