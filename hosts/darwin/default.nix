@@ -209,6 +209,7 @@ in
   nix-homebrew = {
     enable = true;
     user = "jbedm";
+    autoMigrate = true;
     # Disabled: we set brew env in programs.fish.shellInit directly (inline
     # instead of eval'ing brew shellenv, saves ~100ms per shell).
     enableFishIntegration = false;

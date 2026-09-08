@@ -8,6 +8,8 @@ err() { printf "\033[1;31mERROR:\033[0m %s\n" "$*" >&2; }
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 DARWIN_ATTR="Jakes-MacBook"
 EXPECTED_USER="jbedm"
+EXPECTED_DOTFILES="/Users/$EXPECTED_USER/nix-config"
+DETERMINATE_TEAM_ID="X3JQ4VPJZ6"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   err "install.sh only supports macOS"
@@ -24,6 +26,12 @@ if [[ "$(id -un)" != "$EXPECTED_USER" ]]; then
   exit 1
 fi
 
+if [[ "$DOTFILES" != "$EXPECTED_DOTFILES" ]]; then
+  err "This configuration must be cloned to '$EXPECTED_DOTFILES'"
+  err "Current checkout: '$DOTFILES'"
+  exit 1
+fi
+
 # Homebrew requires the Command Line Tools for a supported macOS setup.
 if ! xcode-select -p >/dev/null 2>&1; then
   msg "Installing Xcode Command Line Tools"
@@ -32,26 +40,66 @@ if ! xcode-select -p >/dev/null 2>&1; then
   exit 0
 fi
 
-if ! command -v nix >/dev/null 2>&1 \
-  && [[ ! -x /nix/var/nix/profiles/default/bin/nix ]]; then
-  msg "Installing Determinate Nix"
+if command -v nix >/dev/null 2>&1; then
+  NIX_BIN="$(command -v nix)"
+elif [[ -x /nix/var/nix/profiles/default/bin/nix ]]; then
+  NIX_BIN="/nix/var/nix/profiles/default/bin/nix"
+else
+  NIX_BIN=""
+fi
+nix_version="$(${NIX_BIN:-false} --version 2>/dev/null || true)"
+
+if [[ "$nix_version" != *"Determinate Nix"* ]]; then
+  if [[ -n "$nix_version" ]]; then
+    msg "Migrating the existing Nix installation to Determinate Nix"
+  else
+    msg "Installing Determinate Nix"
+  fi
+
   tmpdir="$(mktemp -d)"
   trap 'rm -rf "$tmpdir"' EXIT
   pkg="$tmpdir/Determinate.pkg"
   curl --proto '=https' --tlsv1.2 -sSfL \
     https://install.determinate.systems/determinate-pkg/stable/Universal \
     -o "$pkg"
-  if ! sudo installer -verboseR -pkg "$pkg" -target /; then
-    warn "macOS package installer failed; falling back to the shell installer"
-    curl --proto '=https' --tlsv1.2 -sSfL \
-      https://install.determinate.systems/nix | sh -s -- install
+
+  signature="$(spctl -a -vv -t install "$pkg" 2>&1 || true)"
+  actual_team_id="$(printf '%s\n' "$signature" | awk -F '(' '/origin=/ { print $2 }' | tr -d '()')"
+  if [[ "$actual_team_id" != "$DETERMINATE_TEAM_ID" ]]; then
+    err "Determinate package signature did not match the expected developer"
+    err "Expected Team ID: $DETERMINATE_TEAM_ID"
+    err "Actual Team ID: ${actual_team_id:-unknown}"
+    exit 1
   fi
+
+  sudo installer -verboseR -pkg "$pkg" -target /
 fi
 
-if ! command -v nix >/dev/null 2>&1; then
-  set +u
-  . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-  set -u
+if [[ -x /nix/var/nix/profiles/default/bin/nix ]]; then
+  NIX_BIN="/nix/var/nix/profiles/default/bin/nix"
+elif command -v nix >/dev/null 2>&1; then
+  NIX_BIN="$(command -v nix)"
+else
+  NIX_BIN=""
+fi
+
+if [[ -z "$NIX_BIN" ]]; then
+  err "Determinate Nix was installed, but 'nix' is not available"
+  err "Open a new terminal and re-run this script"
+  exit 1
+fi
+
+if [[ "$($NIX_BIN --version 2>/dev/null || true)" != *"Determinate Nix"* ]]; then
+  err "This configuration requires Determinate Nix"
+  err "Detected: $($NIX_BIN --version 2>/dev/null || echo unknown)"
+  exit 1
+fi
+
+if ! command -v darwin-rebuild >/dev/null 2>&1; then
+  warn "This configuration installs applications from the Mac App Store."
+  warn "Sign into the App Store app before continuing; iCloud sign-in alone is not sufficient."
+  printf "Press Return once the App Store shows your account, or Ctrl-C to stop: "
+  read -r
 fi
 
 if [[ -e /etc/nix-darwin && ! -L /etc/nix-darwin ]]; then
@@ -64,25 +112,11 @@ if [[ ! -e /etc/nix-darwin ]] \
   sudo ln -snf "$DOTFILES" /etc/nix-darwin
 fi
 
-if [[ "$(scutil --get LocalHostName 2>/dev/null || true)" != "$DARWIN_ATTR" ]]; then
-  msg "Setting LocalHostName to $DARWIN_ATTR"
-  sudo scutil --set LocalHostName "$DARWIN_ATTR"
-fi
-
-if ! nix eval "$DOTFILES#darwinConfigurations.\"$DARWIN_ATTR\"" \
-  --raw --apply 'x: "ok"' >/dev/null 2>&1; then
-  err "No darwinConfigurations.\"$DARWIN_ATTR\" found in flake.nix"
-  echo "Available configurations:"
-  nix eval "$DOTFILES#darwinConfigurations" --apply builtins.attrNames 2>/dev/null \
-    || echo "  (could not list configurations)"
-  exit 1
-fi
-
 msg "Building nix-darwin configuration for $DARWIN_ATTR"
 
 if ! command -v darwin-rebuild >/dev/null 2>&1; then
   msg "Bootstrapping nix-darwin"
-  sudo -H nix run nix-darwin/master#darwin-rebuild -- \
+  sudo -H "$NIX_BIN" run nix-darwin/master#darwin-rebuild -- \
     switch --flake "$DOTFILES#$DARWIN_ATTR"
 else
   sudo -H "$(command -v darwin-rebuild)" \
