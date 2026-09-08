@@ -111,15 +111,7 @@
           inherit overlays;
           config.allowUnfree = true;
         };
-        modules = [
-          ./hosts/gts
-          {
-            # TODO: temporary Neovim nightly pin for watcher-backed
-            # 'autoread' (neovim/neovim#37971). Revert to nixpkgs neovim
-            # once that package includes the commit.
-            programs.neovim.package = neovim-nightly-overlay.packages.x86_64-linux.default;
-          }
-        ];
+        modules = [ ./hosts/gts ];
       };
     };
 }

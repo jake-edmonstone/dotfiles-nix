@@ -16,7 +16,7 @@ does not contain the watcher commit, so the nightly override is still required.
 
 - Upstream: [neovim/neovim#37971](https://github.com/neovim/neovim/pull/37971)
 - Temporary code:
-  - `flake.nix`: the `neovim-nightly-overlay` input and Darwin/Linux package overrides.
+  - `flake.nix`: the `neovim-nightly-overlay` input and Darwin package override.
   - `config/nvim/lua/config/autocmds.lua`: the commented pre-watcher fallback.
   - `config/nvim/lua/config/options.lua`: the `autoread` dependency note.
 - Once nixpkgs Neovim contains the change, remove the nightly input, output

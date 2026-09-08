@@ -129,7 +129,10 @@ mkdir -p "$HOME/.local/state/nix/profiles"
 
 msg "Activating Home Manager configuration $HOME_ATTR"
 home_manager=(
-  "$NIX_BIN" run "$DOTFILES#home-manager" --
+  # A GTS proxy reset can leave Nix's tarball cache with a truncated GitHub
+  # archive (NixOS/nix#4533). Revalidate tarballs during bootstrap only; do not
+  # disable the cache globally for normal Home Manager evaluations.
+  "$NIX_BIN" --option tarball-ttl 0 run "$DOTFILES#home-manager" --
 )
 
 if [[ ! -e "$HOME/.local/state/home-manager/gcroots/current-home" ]]; then
