@@ -94,6 +94,17 @@ if [[ "$($NIX_BIN --version 2>/dev/null || true)" != *"Determinate Nix"* ]]; the
   exit 1
 fi
 
+# The first run continues in the shell that predates the Nix installation.
+# Home Manager invokes nix, nix-env, and nix-store by name, so initialize the
+# daemon environment before launching it.
+NIX_DAEMON_PROFILE="/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+if [[ -r "$NIX_DAEMON_PROFILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$NIX_DAEMON_PROFILE"
+else
+  export PATH="${NIX_BIN%/*}:$PATH"
+fi
+
 # Nix uses its own CA bundle unless both the daemon and client are directed to
 # AlmaLinux's trust store. This is required on GTS because HTTPS is intercepted
 # by a corporate CA. Determinate includes nix.custom.conf from nix.conf.
