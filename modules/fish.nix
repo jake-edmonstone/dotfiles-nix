@@ -80,8 +80,8 @@ in
     };
 
     shellInit = ''
-      # Neovim's LSP clients and watcher-backed autoread need more than macOS's
-      # default 256 descriptors. Only raise the soft limit inherited by tools.
+      # Neovim's LSP clients and watcher-backed autoread need many descriptors.
+      # Only raise the soft limit inherited by interactive tools.
       ulimit -Sn 8192
     '';
 

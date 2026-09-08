@@ -1,4 +1,4 @@
-_:
+{ pkgs, ... }:
 
 let
   theme = import ../theme.nix;
@@ -9,7 +9,7 @@ in
     ".jupyter/jupyter_server_config.py" = {
       force = true;
       text = ''
-        c.ServerApp.open_browser = True
+        c.ServerApp.open_browser = ${if pkgs.stdenv.hostPlatform.isDarwin then "True" else "False"}
       '';
     };
 

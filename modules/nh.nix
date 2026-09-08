@@ -3,6 +3,6 @@
 {
   programs.nh = {
     enable = true;
-    darwinFlake = "${config.home.homeDirectory}/nix-config";
+    flake = "${config.home.homeDirectory}/nix-config";
   };
 }

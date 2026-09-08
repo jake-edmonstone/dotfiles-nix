@@ -75,6 +75,7 @@ return {
   -- Typst
   {
     "chomosuke/typst-preview.nvim",
+    enabled = not vim.g.headless_server,
     opts = {
       open_cmd = "open -b net.imput.helium %s",
       dependencies_bin = {

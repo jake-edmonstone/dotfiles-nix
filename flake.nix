@@ -1,8 +1,8 @@
 {
   description = "Jake's system configuration";
 
-  # Run ./install.sh for first-time setup. Afterwards, /etc/nix-darwin points
-  # here, so `sudo darwin-rebuild switch` activates the configuration.
+  # Run ./install.sh for first-time macOS setup, or ./install-alma.sh on the
+  # GTS AlmaLinux host.
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -74,6 +74,11 @@
     {
 
       formatter.aarch64-darwin = formatterFor "aarch64-darwin";
+      formatter.x86_64-linux = formatterFor "x86_64-linux";
+
+      # Expose the locked Home Manager CLI so install-alma.sh can bootstrap
+      # without fetching an unrelated Home Manager revision.
+      packages.x86_64-linux.home-manager = home-manager.packages.x86_64-linux.default;
 
       darwinConfigurations."Jakes-MacBook" = nix-darwin.lib.darwinSystem {
         modules = [
@@ -96,6 +101,23 @@
                 programs.neovim.package = neovim-nightly-overlay.packages.aarch64-darwin.default;
               };
             };
+          }
+        ];
+      };
+
+      homeConfigurations."jedmonstone@jedmonstone-dev" = home-manager.lib.homeManagerConfiguration {
+        pkgs = import nixpkgs {
+          system = "x86_64-linux";
+          inherit overlays;
+          config.allowUnfree = true;
+        };
+        modules = [
+          ./hosts/gts
+          {
+            # TODO: temporary Neovim nightly pin for watcher-backed
+            # 'autoread' (neovim/neovim#37971). Revert to nixpkgs neovim
+            # once that package includes the commit.
+            programs.neovim.package = neovim-nightly-overlay.packages.x86_64-linux.default;
           }
         ];
       };

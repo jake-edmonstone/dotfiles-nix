@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   home = config.home.homeDirectory;
@@ -60,14 +65,6 @@ in
         theme = if theme.isDark then "dracula" else "catppuccin-latte";
       };
 
-      desktop = {
-        appearanceTheme = theme.mode;
-        appearanceLightCodeThemeId = "catppuccin";
-        appearanceDarkCodeThemeId = "dracula";
-        appearanceLightChromeTheme = chromeTheme theme.palettes.light;
-        appearanceDarkChromeTheme = chromeTheme theme.palettes.dark;
-      };
-
       notice = {
         hide_gpt5_1_migration_prompt = true;
         "hide_gpt-5.1-codex-max_migration_prompt" = true;
@@ -84,8 +81,19 @@ in
         "${home}/projects/jake-edmonstone.github.io".trust_level = "trusted";
         "${home}/projects".trust_level = "trusted";
         "${home}/misc".trust_level = "trusted";
-        "${home}/Library/Mobile Documents/com~apple~CloudDocs".trust_level = "trusted";
         "${home}".trust_level = "trusted";
+      }
+      // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+        "${home}/Library/Mobile Documents/com~apple~CloudDocs".trust_level = "trusted";
+      };
+    }
+    // lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+      desktop = {
+        appearanceTheme = theme.mode;
+        appearanceLightCodeThemeId = "catppuccin";
+        appearanceDarkCodeThemeId = "dracula";
+        appearanceLightChromeTheme = chromeTheme theme.palettes.light;
+        appearanceDarkChromeTheme = chromeTheme theme.palettes.dark;
       };
     };
   };
